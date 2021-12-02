@@ -1,4 +1,5 @@
 from typing import List
+import heapq
 
 import numpy as np
 import torch
@@ -58,8 +59,9 @@ def compute_intrinsic_reward(
     sm=8,
 ) -> float:
     state_dist = [(c_state, torch.dist(c_state, current_c_state)) for c_state in episodic_memory]
-    state_dist.sort(key=lambda x: x[1])
-    state_dist = state_dist[:k]
+    state_dist = heapq.nsmallest(k, state_dist, key=lambda x: x[1])
+    # state_dist.sort(key=lambda x: x[1])
+    # state_dist = state_dist[:k]
     dist = [d[1].item() for d in state_dist]
     dist = np.array(dist)
 

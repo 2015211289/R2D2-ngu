@@ -3,7 +3,8 @@ import torch
 import torch.optim as optim
 import wandb
 from gym import Wrapper
-from gym_maze.envs.maze_env import MazeEnvSample5x5
+from gym_maze.envs.maze_env import *
+import argparse
 
 from config import config
 from embedding_model import EmbeddingModel, compute_intrinsic_reward
@@ -37,15 +38,24 @@ class Maze(Wrapper):
         return super().reset()
 
 
-def main():
-    env = Maze(MazeEnvSample5x5())
+def main(arglist):
+    if arglist.env == "MazeEnvSample5x5":
+        env = Maze(MazeEnvSample5x5())
+    elif arglist.env == "MazeEnvSample10x10":
+        env = Maze(MazeEnvSample10x10())
+    elif arglist.env == "MazeEnvRandom5x5":
+        env = Maze(MazeEnvRandom5x5())
+    elif arglist.env == "MazeEnvRandom10x10":
+        env = Maze(MazeEnvRandom10x10())
+        
+    config.enable_ngu = arglist.ngu
 
     torch.manual_seed(config.random_seed)
     env.seed(config.random_seed)
     np.random.seed(config.random_seed)
     env.action_space.seed(config.random_seed)
 
-    wandb.init(project="ngu-maze", config=config.__dict__)
+    wandb.init(project=arglist.project, config=config.__dict__)
 
     num_inputs = env.observation_space.shape[0]
     num_actions = env.action_space.n
@@ -72,8 +82,9 @@ def main():
     sum_reward = 0
     sum_augmented_reward = 0
     sum_obs_set = 0
+    success_times = 0
 
-    for episode in range(30000):
+    for episode in range(arglist.episode):
         done = False
         state = env.reset()
         state = torch.Tensor(state).to(config.device)
@@ -116,6 +127,8 @@ def main():
             sum_reward += env_reward
             state = next_state
             sum_augmented_reward += augmented_reward
+            if env_reward > 0:
+                success_times += 1
 
             if steps > config.initial_exploration and len(memory) > config.batch_size:
                 epsilon -= config.epsilon_decay
@@ -139,6 +152,7 @@ def main():
         if episode > 0 and episode % config.log_interval == 0:
             mean_reward = sum_reward / config.log_interval
             mean_augmented_reward = sum_augmented_reward / config.log_interval
+            mean_success_rate = success_times / config.log_interval
             metrics = {
                 "episode": episode,
                 "mean_reward": mean_reward,
@@ -148,14 +162,26 @@ def main():
                 "mean_augmented_reward": mean_augmented_reward,
                 "steps": steps,
                 "sum_obs_set": sum_obs_set / config.log_interval,
+                "mean_success_rate": mean_success_rate
             }
             print(metrics)
             wandb.log(metrics)
+            
+            path = "./model/"+arglist.project+"-"+("ngu-" if arglist.ngu else "")
+            torch.save(online_net, path + 'online_net.pth')
+            torch.save(target_net, path + "target_net.pth")
 
             sum_reward = 0
             sum_augmented_reward = 0
             sum_obs_set = 0
+            success_times = 0
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--project",type=str,default="")
+    parser.add_argument("--env",type=str,default="")
+    parser.add_argument("--episode",type=int,default=1000)
+    parser.add_argument("--ngu",action="store_true", default=False)
+    arglist = parser.parse_args()
+    main(arglist)

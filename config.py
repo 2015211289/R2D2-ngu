@@ -40,6 +40,6 @@ config = Config(
     over_lapping_length=16,
     epsilon_decay=0.00001,
     random_seed=42,
-    enable_ngu=True,
+    enable_ngu=False,
     hidden_size=16,
 )
