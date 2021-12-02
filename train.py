@@ -49,7 +49,7 @@ def main(arglist):
         env = Maze(MazeEnvRandom10x10())
         
     config.enable_ngu = arglist.ngu
-
+    
     torch.manual_seed(config.random_seed)
     env.seed(config.random_seed)
     np.random.seed(config.random_seed)
@@ -97,7 +97,7 @@ def main(arglist):
         episodic_memory = [embedding_model.embedding(state)]
 
         episode_steps = 0
-        horizon = 100
+        horizon = arglist.horizon
         while not done:
             steps += 1
             episode_steps += 1
@@ -183,5 +183,6 @@ if __name__ == "__main__":
     parser.add_argument("--env",type=str,default="")
     parser.add_argument("--episode",type=int,default=1000)
     parser.add_argument("--ngu",action="store_true", default=False)
+    parser.add_argument("--horizon",type=int,default=100)
     arglist = parser.parse_args()
     main(arglist)
